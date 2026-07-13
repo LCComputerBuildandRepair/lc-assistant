@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LC Computer Build & Repair — AI Assistant
 
-## Getting Started
+A private web dashboard for running the business: a Claude-powered assistant that
+knows the shop, an appointment scheduler, and (in later phases) email and website
+integration.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Next.js 16** (App Router) + **React 19** + **Tailwind CSS 4**
+- **Prisma 7** with a **SQLite** database for local dev (swap to Postgres for cloud)
+- **Claude** (`claude-opus-4-8`) via the Anthropic SDK, with tools to read the
+  schedule and book appointments
+- Cookie-based owner login (`iron-session`)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Install dependencies (already done if you scaffolded this):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   npm install
+   ```
 
-## Learn More
+2. Configure `.env` (already created — edit these values):
 
-To learn more about Next.js, take a look at the following resources:
+   - `OWNER_PASSWORD` — the password you use to log in (default `changeme`)
+   - `ANTHROPIC_API_KEY` — get one at https://console.anthropic.com/ . The
+     assistant stays disabled until this is set.
+   - `SESSION_SECRET` — already generated for you.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. Create the database and seed sample data:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   npm run db:push
+   npm run db:seed   # optional: adds a few example appointments
+   ```
 
-## Deploy on Vercel
+4. Run it:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   npm run dev
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   Open http://localhost:3000 and sign in.
+
+## What works today (Phase 1)
+
+- **Dashboard** — greeting, today's schedule, weekly/open-job counts.
+- **Assistant** — chat that knows the business, checks the schedule, and books
+  appointments. Needs `ANTHROPIC_API_KEY`.
+- **Appointments** — list, create, and update status (drop-off, pickup, in-home,
+  phone, in-store).
+
+## Business knowledge
+
+Everything the assistant knows about the shop — services, hours, appointment
+types — lives in [`lib/business.ts`](lib/business.ts). These are starter defaults;
+edit them to match the real business (or they'll be filled in from the website).
+
+## Roadmap
+
+- **Phase 2 — Email:** connect Gmail (owner authorizes via Google OAuth); triage
+  the inbox, summarize threads, draft replies for approval.
+- **Phase 3 — Website:** a public chat widget that answers visitor questions and
+  captures/books jobs into this dashboard.
+
+## Deploying (always-on cloud)
+
+For a live, always-on deployment:
+
+1. Switch the Prisma datasource `provider` to `postgresql` and point
+   `DATABASE_URL` at a hosted Postgres (e.g. Neon's free tier), then update the
+   driver adapter in [`lib/db.ts`](lib/db.ts).
+2. Deploy to Railway, Render, or Vercel with the same environment variables.

@@ -1,0 +1,135 @@
+// LC Computer Build & Repair — AI Assistant database schema
+// Local dev uses SQLite for zero-setup. For cloud (always-on) deploy, switch
+// `provider` to "postgresql" and point DATABASE_URL at a hosted Postgres (e.g. Neon).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// A customer of the shop.
+model Customer {
+  id           String        @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  address      String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+/// A scheduled appointment: drop-off, pickup, in-home visit, phone consult, or in-store consult.
+model Appointment {
+  id            String    @id @default(cuid())
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  customerId    String?
+  customerName  String // denormalized for quick display even without a linked Customer
+  customerPhone String?
+  customerEmail String?
+  // type: dropoff | pickup | in_home | phone | in_store
+  type          String    @default("in_store")
+  // serviceType: diagnostic | repair | custom_build | upgrade | virus_removal | data_recovery | consult | other
+  serviceType   String    @default("diagnostic")
+  // status: scheduled | confirmed | in_progress | completed | cancelled | no_show
+  status        String    @default("scheduled")
+  scheduledAt   DateTime
+  durationMin   Int       @default(60)
+  location       String? // address for in-home visits
+  notes          String?
+  source         String    @default("manual") // manual | website | assistant
+  reminderSentAt DateTime? // set once a reminder has gone out
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+/// An email fetched from the connected inbox, with AI triage + draft reply.
+model Email {
+  id         String   @id @default(cuid())
+  messageId  String   @unique // IMAP Message-ID, for dedup
+  fromName   String?
+  fromEmail  String
+  subject    String?
+  bodyText   String
+  receivedAt DateTime
+  // AI triage
+  summary    String?
+  category   String? // inquiry | booking | quote | complaint | spam | personal | other
+  priority   String? // high | normal | low
+  draftReply String?
+  status     String   @default("new") // new | drafted | replied | archived
+  createdAt  DateTime @default(now())
+
+  @@index([receivedAt])
+  @@index([status])
+}
+
+/// A price quote generated for a customer (PC build, repair/parts, or website).
+model Quote {
+  id              String   @id @default(cuid())
+  kind            String // build | repair | website
+  customerName    String?
+  customerPhone   String?
+  customerEmail   String?
+  request         String // what the customer asked for
+  summary         String? // AI one-line description
+  itemsJson       String   @default("[]") // line items: [{name, qty, unitPrice, lineTotal, retailer, note}]
+  partsCost       Float    @default(0) // estimated retail cost of parts (owner's basis)
+  partsMarkupRate Float    @default(0)
+  partsCharge     Float    @default(0) // parts price charged to customer (cost + markup)
+  taxRate         Float    @default(0)
+  tax             Float    @default(0)
+  labor           Float    @default(0)
+  total           Float    @default(0)
+  marginEstimate  Float    @default(0) // owner's estimated profit
+  assumptions     String?
+  status          String   @default("new") // new | sent | won | lost
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// A message submitted through the public website contact form.
+model ContactMessage {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  service     String? // which service they're asking about
+  message     String
+  status      String   @default("new") // new | read | replied | archived
+  source      String   @default("website") // where it came from
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// A conversation thread with the AI assistant.
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+}
+
+/// A single message within an assistant conversation.
+model Message {
+  id             String       @id @default(cuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  // role: user | assistant
+  role           String
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
