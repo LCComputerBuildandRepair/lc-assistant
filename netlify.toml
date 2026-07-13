@@ -1,0 +1,14 @@
+# Netlify configuration for LC Computer Build & Repair.
+# The Next.js runtime plugin turns the app's pages/API routes into serverless
+# functions. Postgres (Neon) is the database; `db push` on build keeps its
+# schema in sync. Set DATABASE_URL (Neon pooled connection string) in the
+# Netlify UI under Site settings → Environment variables.
+
+[build]
+  command = "npx prisma generate && npx prisma db push && npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

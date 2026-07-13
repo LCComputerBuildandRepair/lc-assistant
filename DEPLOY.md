@@ -1,112 +1,68 @@
-# Going live — LC Computer Build & Repair Assistant
+# Going live on Netlify — LC Computer Build & Repair
 
-This guide takes the app from your computer to an always-on public URL your
-customers can use. Recommended host: **Railway** (always-on, cheap, supports the
-reminder scheduler). The database is **SQLite on a persistent volume** — nothing
-to migrate, exactly what you've been running.
+The app runs on **Netlify** (serverless) with a **Neon** Postgres database. Your
+Squarespace domain already points to Netlify, so there are no DNS changes.
 
-You'll need accounts for: **Railway**, **Anthropic** (AI), **Resend** (email
-sending), **Twilio** (texts), plus an **app password** for your mailbox.
+## 1. Create the database (Neon)
 
----
+1. Go to [neon.tech](https://neon.tech) → sign up (free) → **Create project**.
+2. Copy the **Pooled connection string** (Dashboard → Connect → toggle "Pooled connection").
+   It looks like `postgresql://...-pooler...neon.tech/neondb?sslmode=require`.
+   Use the **pooled** one — serverless needs it.
 
-## 1. Put the code on GitHub
+## 2. Connect the repo to Netlify
 
-Railway deploys from a GitHub repo.
+1. [app.netlify.com](https://app.netlify.com) → **Add new site → Import an existing project** → **GitHub** → pick **`lc-assistant`**.
+2. Netlify auto-detects Next.js. Leave the build settings as-is (this repo's `netlify.toml` sets the build command and installs the Next.js runtime).
 
-```bash
-cd lc-assistant
-git add -A
-git commit -m "LC Computer Build & Repair assistant"
-# create an empty private repo on github.com, then:
-git remote add origin https://github.com/<you>/lc-assistant.git
-git push -u origin main
-```
+## 3. Set environment variables
 
-`.env` is gitignored, so your secrets stay out of GitHub (you'll set them in Railway).
-
-## 2. Create the Railway project
-
-1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo** → pick `lc-assistant`.
-2. Railway auto-detects Next.js and builds it.
-3. In the service **Settings**:
-   - **Start command:** `npm run start:prod`  (creates the DB tables, then serves)
-   - Generate a **public domain** (Settings → Networking → Generate Domain). That URL is your app — call it `APP_URL` below.
-
-## 3. Add a persistent volume (your database)
-
-1. In the service → **Volumes** → **New Volume**, mount path **`/data`**.
-2. This keeps your database (appointments, quotes, messages, emails) safe across restarts and deploys.
-
-## 4. Set environment variables
-
-In the service → **Variables**, add these (copy the names from your local `.env`):
+Site → **Site configuration → Environment variables** → add these:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | `file:/data/prod.db` |
-| `TZ` | `America/New_York` |
-| `NODE_ENV` | `production` |
+| `DATABASE_URL` | your Neon **pooled** connection string |
 | `OWNER_PASSWORD` | your dashboard login password |
-| `SESSION_SECRET` | a long random string (keep your local one, or make a new one) |
-| `ANTHROPIC_API_KEY` | from console.anthropic.com |
+| `SESSION_SECRET` | a long random string (copy from your local `.env`) |
+| `CRON_SECRET` | a long random string (copy from your local `.env`) |
+| `ANTHROPIC_API_KEY` | from console.anthropic.com — powers assistant, chat, quotes |
+| `QUOTE_WEB_SEARCH` | `off` (keeps quotes within the serverless time limit) |
 | `OWNER_EMAIL` | `lukepennywitt@yahoo.com` |
 | `OWNER_PHONE` | your cell, e.g. `+14195551234` |
-| `RESEND_API_KEY` + `NOTIFY_FROM_EMAIL` | from resend.com |
+| `RESEND_API_KEY` + `NOTIFY_FROM_EMAIL` | from resend.com — sends emails |
 | `SMS_PROVIDER` | `twilio` |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | from twilio.com |
-| `MAIL_PROVIDER` | `yahoo` (or `gmail`) |
-| `MAIL_USER` | your email address |
-| `MAIL_APP_PASSWORD` | mailbox app password (see §7) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | from twilio.com — texts |
+| `MAIL_PROVIDER` | `yahoo` |
+| `MAIL_USER` | `lukepennywitt@yahoo.com` |
+| `MAIL_APP_PASSWORD` | Yahoo app password (Account Security → Generate app password) |
 | `ALLOWED_ORIGIN` | `https://lccomputerbuildandrepair.com` |
-| `CRON_SECRET` | keep your local one |
-| `QUOTE_*` | optional — tune tax/markup/labor (defaults are fine) |
 
-Redeploy after saving. Visit `APP_URL` and log in.
+The site runs with just `DATABASE_URL`, `OWNER_PASSWORD`, and `SESSION_SECRET`.
+The rest turn on AI / texts / email — add them anytime; the build auto-redeploys.
 
-## 5. Turn on appointment reminders
+## 4. Deploy
 
-Railway → **New** → **Cron** (or a scheduled job) that runs once a day:
+Trigger a deploy (Netlify does it on connect and on every push to `main`). The
+build runs `prisma db push` against Neon to create your tables, then builds the site.
 
-```bash
-curl -s -X GET "$APP_URL/api/cron/reminders" -H "Authorization: Bearer $CRON_SECRET"
-```
+## 5. Point your domain
 
-Schedule it for the morning (e.g. `0 9 * * *`). It texts/emails tomorrow's customers.
+Your domain already resolves to Netlify, so in Netlify → **Domain management**,
+add **`lccomputerbuildandrepair.com`** (and `www`) to this site. No Squarespace/DNS
+changes needed if the domain is already on this Netlify account.
 
-## 6. Your website is already built in
+## 6. Appointment reminders (daily)
 
-Your marketing site (index, repair, websites, homecalls, commercial, gallery) now
-lives in this project's `public/` folder and is served by the same app:
+Netlify functions don't run on a schedule by themselves, so use a free external
+cron: [cron-job.org](https://cron-job.org) → new job → **GET**
+`https://YOUR-SITE/api/cron/reminders`, header `Authorization: Bearer <CRON_SECRET>`,
+once a day (e.g. 9am). It texts/emails the next day's customers.
 
-- Homepage at `/`, pages at `/repair`, `/websites`, `/homecalls`, `/commercial`, `/gallery`.
-- **Book Now** already points to `/book` (Calendly removed — cancel it whenever).
-- The **contact form** already posts to `/api/contact` (via `public/contact-hook.js`).
-- The **chat bubble** already loads on every page (via `public/embed.js`).
+## Notes / serverless limits
 
-So once this is deployed, `APP_URL` **is** your whole website. Point your domain
-(lccomputerbuildandrepair.com) at the Railway deployment (Settings → Networking →
-Custom Domain) and you're fully live — nothing external to edit.
-
-You can add a **"Get a Quote"** link anywhere pointing to `/quote`.
-
-## 7. Mailbox app password (for the Inbox)
-
-Turn on 2-factor auth first, then create an **app password** (not your login password):
-- **Yahoo:** account.yahoo.com → Account Security → Generate app password
-- **Gmail:** myaccount.google.com → Security → App passwords
-
-Put it in `MAIL_APP_PASSWORD`. Then the Inbox tab's "Check mail" works.
-
-## 8. Backups
-
-Your data lives in `/data/prod.db` on the Railway volume. To back up, download it
-periodically (Railway shell: `cp /data/prod.db /data/backup-$(date +%F).db`, or
-pull it down). Low-traffic, but worth a monthly copy.
-
----
-
-### Optional: custom subdomain
-Point `app.lccomputerbuildandrepair.com` (or `book.`) at Railway (Settings →
-Networking → Custom Domain) so customers see your brand instead of a railway.app URL.
-Update `ALLOWED_ORIGIN` and the embed/booking URLs to match.
+- **Quotes** run in fast-estimate mode (`QUOTE_WEB_SEARCH=off`) to fit Netlify's
+  function time limit. If the chat or quote ever times out, that's the function
+  duration cap — raising it needs a Netlify plan that allows longer functions.
+- **Inbox**: each "Check mail" AI-triages up to `EMAIL_TRIAGE_MAX` (default 5) new
+  emails to stay within the time limit; click again to process more.
+- Local dev now also needs a `DATABASE_URL` (point it at your Neon dev branch).

@@ -1,14 +1,13 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-// Prisma 7 connects through a driver adapter. For SQLite we use better-sqlite3;
-// the path resolves relative to the project root (cwd).
+// Prisma 7 connects through a driver adapter. We use Postgres (Neon) so the app
+// runs on serverless hosts like Netlify. DATABASE_URL is the Neon connection
+// string — use the POOLED connection string for serverless.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function makeClient() {
-  const adapter = new PrismaBetterSqlite3({
-    url: process.env.DATABASE_URL ?? "file:./dev.db",
-  });
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],

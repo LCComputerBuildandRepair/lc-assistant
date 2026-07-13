@@ -27,15 +27,21 @@ export async function POST() {
     );
   }
 
+  // AI triage is slow (one model call per email), so cap how many we triage per
+  // sync to stay within serverless time limits. Untriaged mail is still saved and
+  // readable; triage fills in on the next "Check mail".
+  const TRIAGE_MAX = Number(process.env.EMAIL_TRIAGE_MAX ?? 5) || 5;
   let created = 0;
+  let triaged = 0;
   for (const m of fetched) {
     const exists = await db.email.findUnique({ where: { messageId: m.messageId } });
     if (exists) continue;
 
     let triage = null;
-    if (hasApiKey()) {
+    if (hasApiKey() && triaged < TRIAGE_MAX) {
       try {
         triage = await triageEmail(m);
+        triaged++;
       } catch (err) {
         console.error("Triage failed:", err);
       }
