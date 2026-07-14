@@ -2,6 +2,7 @@ import { db } from "./db";
 import { isSlotOpen } from "./availability";
 import { notifyOwner, sendEmail, sendSms } from "./notify";
 import { buildBookingICS } from "./calendar";
+import { googleConfigured, syncBookingToGoogle } from "./google";
 import { business, serviceName, appointmentTypeName } from "./business";
 
 export interface BookingInput {
@@ -82,10 +83,30 @@ export async function createBooking(input: BookingInput): Promise<BookingResult>
     "",
     "Need to change it? Just reply or give us a call.",
   ].join("\n");
-  const ical = buildBookingICS(appt);
+  // If Google Calendar is connected, add the event there; otherwise fall back to
+  // an .ics email invite (avoid doing both, which would double-book the calendar).
+  const useGoogle = googleConfigured();
+  const ical = useGoogle ? undefined : buildBookingICS(appt);
+  const endISO = new Date(scheduledAt.getTime() + duration * 60000).toISOString();
 
   // Await all sends so the serverless function stays alive until they finish.
   await Promise.allSettled([
+    useGoogle
+      ? syncBookingToGoogle({
+          title: `${serviceName(service)} — ${name}`,
+          startISO: scheduledAt.toISOString(),
+          endISO,
+          description: [
+            `${serviceName(service)} (${appointmentTypeName(type)})`,
+            input.phone ? `Phone: ${input.phone}` : "",
+            input.email ? `Email: ${input.email}` : "",
+            input.notes ? `Notes: ${input.notes}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          location: input.location || business.location,
+        })
+      : null,
     input.email ? sendEmail(input.email, `Booking confirmed — ${business.name}`, confirmation) : null,
     input.phone ? sendSms(input.phone, confirmation) : null,
     notifyOwner(

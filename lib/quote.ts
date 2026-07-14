@@ -1,6 +1,7 @@
 import { extractToolCall, type AiTool } from "./ai";
 import { db } from "./db";
-import { notifyOwner } from "./notify";
+import { notifyOwner, sendEmail } from "./notify";
+import { syncQuoteToGoogle } from "./google";
 import { business } from "./business";
 import {
   computeQuote,
@@ -133,31 +134,74 @@ export async function generateQuote(
     },
   });
 
-  const lines = computed.lines
-    .map((l) => `  • ${l.qty}× ${l.name} — $${l.lineTotal.toFixed(2)}${l.retailer ? ` (${l.retailer})` : ""}`)
+  const now = new Date();
+  const expires = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const lineList = computed.lines.map((l) => `  • ${l.qty}× ${l.name} — $${l.lineTotal.toFixed(2)}`);
+
+  // Log to Google Sheet + create a Google Doc (best-effort); returns the Doc link.
+  const g = await syncQuoteToGoogle({
+    customerName: customer?.name || "(not provided)",
+    contact: [customer?.phone, customer?.email].filter(Boolean).join(" / ") || "(none)",
+    kind: r.kind,
+    summary: r.summary,
+    items: computed.lines.map((l) => ({ qty: l.qty, name: l.name, lineTotal: l.lineTotal })),
+    partsCharge: computed.partsCharge,
+    tax: computed.tax,
+    labor: computed.labor,
+    total: computed.total,
+    assumptions: r.assumptions,
+    createdISO: now.toISOString(),
+    expiresISO: expires.toISOString(),
+  });
+
+  // Customer-facing quote (no cost basis / margin).
+  const customerText = [
+    `Hi${customer?.name ? " " + customer.name : ""}, here's your estimate from ${business.name}:`,
+    "",
+    r.summary,
+    ...lineList,
+    "",
+    computed.partsCharge > 0 ? `Parts: $${computed.partsCharge.toFixed(2)}` : "",
+    computed.tax > 0 ? `Parts tax: $${computed.tax.toFixed(2)}` : "",
+    computed.labor > 0 ? `Labor: $${computed.labor.toFixed(2)}` : "",
+    `Estimated total: $${computed.total.toFixed(2)}`,
+    "",
+    `This estimate is valid for 90 days (through ${expires.toLocaleDateString()}). Final pricing is confirmed once we review the details — parts and prices can vary.`,
+    r.assumptions ? `\nNotes: ${r.assumptions}` : "",
+    "",
+    `Ready to move forward? Just reply, or book anytime at ${business.website}.`,
+    `— ${business.owner}, ${business.name}`,
+  ]
+    .filter((l) => l !== "")
     .join("\n");
-  await notifyOwner(
-    `New quote: ${r.summary}`,
-    [
-      customer?.name ? `Customer: ${customer.name}` : "Customer: (not provided)",
-      customer?.phone ? `Phone: ${customer.phone}` : null,
-      customer?.email ? `Email: ${customer.email}` : null,
-      "",
-      `Request: ${request}`,
-      lines ? `\nParts:\n${lines}` : "",
-      "",
-      `Parts (charged): $${computed.partsCharge.toFixed(2)}`,
-      computed.tax ? `Tax: $${computed.tax.toFixed(2)}` : null,
-      `Labor: $${computed.labor.toFixed(2)}`,
-      `TOTAL: $${computed.total.toFixed(2)}`,
-      "",
-      `Your est. parts cost: $${computed.partsCost.toFixed(2)}`,
-      `Your est. take (margin + labor): $${computed.marginEstimate.toFixed(2)}`,
-      r.assumptions ? `\nAssumptions: ${r.assumptions}` : null,
-    ]
-      .filter((l) => l !== null)
-      .join("\n"),
-  ).catch(() => {});
+
+  // Owner copy (with margin + Doc link).
+  const ownerText = [
+    customer?.name ? `Customer: ${customer.name}` : "Customer: (not provided)",
+    customer?.phone ? `Phone: ${customer.phone}` : null,
+    customer?.email ? `Email: ${customer.email}` : null,
+    "",
+    `Request: ${request}`,
+    lineList.length ? `\nParts:\n${lineList.join("\n")}` : "",
+    "",
+    `Parts (charged): $${computed.partsCharge.toFixed(2)}`,
+    computed.tax ? `Tax: $${computed.tax.toFixed(2)}` : null,
+    `Labor: $${computed.labor.toFixed(2)}`,
+    `TOTAL: $${computed.total.toFixed(2)}`,
+    "",
+    `Your est. parts cost: $${computed.partsCost.toFixed(2)}`,
+    `Your est. take (margin + labor): $${computed.marginEstimate.toFixed(2)}`,
+    `Valid through: ${expires.toLocaleDateString()} (90 days)`,
+    g.docUrl ? `Quote doc: ${g.docUrl}` : null,
+    r.assumptions ? `\nAssumptions: ${r.assumptions}` : null,
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+
+  await Promise.allSettled([
+    customer?.email ? sendEmail(customer.email, `Your quote from ${business.name}`, customerText) : null,
+    notifyOwner(`New quote: ${r.summary}`, ownerText),
+  ]);
 
   return { id: saved.id, kind: r.kind, summary: r.summary, assumptions: r.assumptions, computed };
 }
