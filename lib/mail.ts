@@ -106,3 +106,34 @@ export async function sendReply(opts: {
     references: opts.inReplyTo,
   });
 }
+
+/** True when the mailbox (SMTP) is configured — reused for sending notifications. */
+export function smtpConfigured(): boolean {
+  return mailConfigured();
+}
+
+/**
+ * Send a general email/notification via SMTP. Optionally attach a calendar
+ * invite (ICS) so Google Calendar auto-adds the event.
+ */
+export async function sendSMTP(opts: {
+  to: string;
+  subject: string;
+  text: string;
+  ical?: string;
+}): Promise<void> {
+  const c = cfg();
+  const transport = nodemailer.createTransport({
+    host: c.smtpHost,
+    port: 465,
+    secure: true,
+    auth: { user: c.user, pass: c.pass },
+  });
+  await transport.sendMail({
+    from: c.user,
+    to: opts.to,
+    subject: opts.subject,
+    text: opts.text,
+    icalEvent: opts.ical ? { method: "REQUEST", content: opts.ical } : undefined,
+  });
+}

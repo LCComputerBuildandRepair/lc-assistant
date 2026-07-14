@@ -136,7 +136,7 @@ export async function generateQuote(
   const lines = computed.lines
     .map((l) => `  • ${l.qty}× ${l.name} — $${l.lineTotal.toFixed(2)}${l.retailer ? ` (${l.retailer})` : ""}`)
     .join("\n");
-  notifyOwner(
+  await notifyOwner(
     `New quote: ${r.summary}`,
     [
       customer?.name ? `Customer: ${customer.name}` : "Customer: (not provided)",

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     "",
     message,
   ].filter((l) => l !== null);
-  notifyOwner("New website message", lines.join("\n")).catch((e) =>
+  await notifyOwner("New website message", lines.join("\n")).catch((e) =>
     console.error("notifyOwner failed:", e),
   );
 

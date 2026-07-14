@@ -14,6 +14,7 @@
  */
 
 import { business } from "./business";
+import { smtpConfigured, sendSMTP } from "./mail";
 
 // Where owner alerts go. Falls back to the business config so it works even
 // without OWNER_EMAIL / OWNER_PHONE env vars set.
@@ -34,10 +35,15 @@ export interface NotifyResult {
   detail?: string;
 }
 
-/** Notify the shop owner by email and text. Never throws. */
-export async function notifyOwner(subject: string, body: string): Promise<NotifyResult> {
+/** Notify the shop owner by email and text. Never throws. `ical` attaches a
+ *  calendar invite to the email (so Google Calendar adds the event). */
+export async function notifyOwner(
+  subject: string,
+  body: string,
+  opts?: { ical?: string },
+): Promise<NotifyResult> {
   const [email, sms] = await Promise.all([
-    sendOwnerEmail(subject, body),
+    sendOwnerEmail(subject, body, opts?.ical),
     sendOwnerSms(`${subject}\n${body}`),
   ]);
   return { email, sms };
@@ -45,22 +51,37 @@ export async function notifyOwner(subject: string, body: string): Promise<Notify
 
 // --- Email -------------------------------------------------------------------
 
-async function sendOwnerEmail(subject: string, body: string): Promise<NotifyResult["email"]> {
+async function sendOwnerEmail(subject: string, body: string, ical?: string): Promise<NotifyResult["email"]> {
   if (!OWNER_EMAIL) return "skipped";
-  return sendEmail(OWNER_EMAIL, subject, body);
+  return sendEmail(OWNER_EMAIL, subject, body, ical);
 }
 
-/** Send an email via Resend. Falls back to console logging when unconfigured. */
+/**
+ * Send an email. Prefers your mailbox over SMTP (reliable, no domain setup);
+ * falls back to Resend, then console logging.
+ */
 export async function sendEmail(
   to: string,
   subject: string,
   body: string,
+  ical?: string,
 ): Promise<"sent" | "skipped" | "error"> {
+  // 1. SMTP via the connected mailbox (MAIL_USER + MAIL_APP_PASSWORD).
+  if (smtpConfigured()) {
+    try {
+      await sendSMTP({ to, subject, text: body, ical });
+      return "sent";
+    } catch (err) {
+      console.error("[notify:email] SMTP failed:", err);
+      return "error";
+    }
+  }
+
+  // 2. Resend (needs a verified domain to send to arbitrary recipients).
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.NOTIFY_FROM_EMAIL;
-
   if (!apiKey || !from) {
-    console.log(`[notify:email → ${to}] ${subject}\n${body}\n(no RESEND_API_KEY/NOTIFY_FROM_EMAIL — logged only)`);
+    console.log(`[notify:email → ${to}] ${subject}\n${body}\n(no mailbox/Resend configured — logged only)`);
     return "skipped";
   }
 

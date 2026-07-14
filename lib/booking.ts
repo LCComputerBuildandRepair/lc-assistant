@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { isSlotOpen } from "./availability";
 import { notifyOwner, sendEmail, sendSms } from "./notify";
+import { buildBookingICS } from "./calendar";
 import { business, serviceName, appointmentTypeName } from "./business";
 
 export interface BookingInput {
@@ -81,21 +82,26 @@ export async function createBooking(input: BookingInput): Promise<BookingResult>
     "",
     "Need to change it? Just reply or give us a call.",
   ].join("\n");
-  if (input.email) sendEmail(input.email, `Booking confirmed — ${business.name}`, confirmation).catch(() => {});
-  if (input.phone) sendSms(input.phone, confirmation).catch(() => {});
+  const ical = buildBookingICS(appt);
 
-  notifyOwner(
-    "New booking",
-    [
-      `${name} booked ${serviceName(service)} (${appointmentTypeName(type)})`,
-      `When: ${when}`,
-      input.phone ? `Phone: ${input.phone}` : null,
-      input.email ? `Email: ${input.email}` : null,
-      input.notes ? `Notes: ${input.notes}` : null,
-    ]
-      .filter(Boolean)
-      .join("\n"),
-  ).catch(() => {});
+  // Await all sends so the serverless function stays alive until they finish.
+  await Promise.allSettled([
+    input.email ? sendEmail(input.email, `Booking confirmed — ${business.name}`, confirmation) : null,
+    input.phone ? sendSms(input.phone, confirmation) : null,
+    notifyOwner(
+      "New booking",
+      [
+        `${name} booked ${serviceName(service)} (${appointmentTypeName(type)})`,
+        `When: ${when}`,
+        input.phone ? `Phone: ${input.phone}` : null,
+        input.email ? `Email: ${input.email}` : null,
+        input.notes ? `Notes: ${input.notes}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      { ical },
+    ),
+  ]);
 
   return { ok: true, id: appt.id, when };
 }
