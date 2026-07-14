@@ -9,6 +9,11 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # These are non-secret (a public API URL, a model name, and the public
+  # business email that's shown on the site) but appear as literals in the code,
+  # which trips Netlify's secrets scanner. Exclude them; real secrets
+  # (DATABASE_URL, AI_API_KEY, etc.) never appear in the code and stay scanned.
+  SECRETS_SCAN_OMIT_KEYS = "AI_BASE_URL,AI_MODEL,OWNER_EMAIL"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
