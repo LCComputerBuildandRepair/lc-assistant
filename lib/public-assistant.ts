@@ -1,13 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { getClient, type ChatMessage, type ToolEvent } from "./claude";
+import { runChat, type AiTool, type ChatMessage, type ToolEvent } from "./ai";
 import { db } from "./db";
 import { createBooking } from "./booking";
-import { getAvailableSlots, getOpenDays, parseLocalDate } from "./availability";
 import { generateQuote } from "./quote";
+import { getAvailableSlots, getOpenDays, parseLocalDate } from "./availability";
 import { notifyOwner } from "./notify";
 import { business, businessSummary, serviceName } from "./business";
-
-const MODEL = "claude-opus-4-8";
 
 function systemPrompt(): string {
   const now = new Date();
@@ -22,33 +19,32 @@ function systemPrompt(): string {
     "",
     "Your goals, in order:",
     "1. Answer the visitor's questions about services, pricing, and how things work.",
-    "2. If they want a price estimate — a PC build, a repair, or a website — use get_quote to build one live. It takes a few seconds; let them know you're pricing it out. Try to get their name and a phone or email first so it reaches the owner.",
+    "2. If they want a price estimate — a PC build, a repair, or a website — use get_quote. Try to get their name and a phone or email first so it reaches the owner.",
     "3. If they want service, help them book an appointment right here in the chat.",
     "4. If they're not ready for either but want a callback, capture their contact info.",
     "",
     "Booking flow:",
     "- Figure out which service they need (map it to a service key).",
-    "- Ask how they'd like to do it (drop-off at the shop, home call, remote for websites, etc.) if it's not obvious.",
     "- Use check_availability to find open days/times — never invent times; only offer what it returns.",
     "- Collect their name and a phone number or email so we can confirm.",
     "- Read the details back, then use book_appointment.",
     "",
     "Guidelines:",
-    "- Prices shown are the published rates; parts/hardware are extra, and hourly overage applies as listed. Frame anything beyond the flat tier as an estimate — a diagnostic confirms the final cost.",
+    "- Prices shown are the published rates; parts/hardware are extra. Frame anything beyond the flat tier as an estimate — a diagnostic confirms the final cost.",
     "- Don't expose the shop's full calendar — only share the open slots check_availability gives you.",
-    "- If you can't help or they want a human, use capture_lead so the owner follows up. Don't make up phone numbers, hours, or details you don't have.",
+    "- If you can't help or they want a human, use capture_lead. Don't make up phone numbers, hours, or details you don't have.",
     "- Keep replies short and easy to read.",
   ].join("\n");
 }
 
 const serviceKeys = business.services.map((s) => s.key).join(", ");
 
-const tools: Anthropic.Tool[] = [
+const tools: AiTool[] = [
   {
     name: "check_availability",
     description:
-      "Find open appointment times. Call with just a service to get the list of open days, then call again with a specific date to get times on that day. Only offer times this returns.",
-    input_schema: {
+      "Find open appointment times. Call with just a service to get open days, then again with a specific date to get times on that day. Only offer times this returns.",
+    parameters: {
       type: "object",
       properties: {
         service: { type: "string", description: `Service key. One of: ${serviceKeys}.` },
@@ -59,15 +55,14 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: "book_appointment",
-    description:
-      "Book the appointment once you have the service, a specific time, the customer's name, and a phone or email. Confirm the details with the customer first.",
-    input_schema: {
+    description: "Book once you have the service, a specific time, the customer's name, and a phone or email. Confirm details first.",
+    parameters: {
       type: "object",
       properties: {
         name: { type: "string" },
         service: { type: "string", description: `Service key. One of: ${serviceKeys}.` },
         type: { type: "string", description: "How: dropoff, pickup, in_store, home_call, remote, or phone." },
-        scheduledAt: { type: "string", description: "ISO 8601 start time, from check_availability (use the exact iso value)." },
+        scheduledAt: { type: "string", description: "ISO 8601 start time from check_availability." },
         phone: { type: "string" },
         email: { type: "string" },
         location: { type: "string", description: "Address, required for home_call." },
@@ -79,15 +74,12 @@ const tools: Anthropic.Tool[] = [
   {
     name: "get_quote",
     description:
-      "Generate a live price estimate for a PC build, a repair/parts replacement, or a website. Describe what the customer wants in plain language. This researches current part prices and takes a few seconds. It also sends the quote to the owner, so collect the customer's name and a phone or email first if you can.",
-    input_schema: {
+      "Generate a price estimate for a PC build, a repair/parts replacement, or a website. Describe what the customer wants. Also sends the quote to the owner, so collect the customer's name and a phone or email first if you can.",
+    parameters: {
       type: "object",
       properties: {
-        request: {
-          type: "string",
-          description: "What to quote, in plain language (e.g. 'gaming PC around $1200' or 'replace a cracked laptop screen on a Dell XPS 13').",
-        },
-        name: { type: "string", description: "Customer name, if known." },
+        request: { type: "string", description: "What to quote, in plain language." },
+        name: { type: "string" },
         phone: { type: "string" },
         email: { type: "string" },
       },
@@ -96,9 +88,8 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: "capture_lead",
-    description:
-      "Save the visitor's info so the owner can follow up (for callbacks or anything you can't handle). Use when they don't want to book or get a quote right now.",
-    input_schema: {
+    description: "Save the visitor's info so the owner can follow up. Use when they don't want to book or get a quote right now.",
+    parameters: {
       type: "object",
       properties: {
         name: { type: "string" },
@@ -124,9 +115,7 @@ async function runTool(
     if (!input.date) {
       const days = await getOpenDays(service);
       return {
-        result: days.length
-          ? `Open days for ${serviceName(service)}: ${days.join(", ")}`
-          : "No openings in the next few weeks.",
+        result: days.length ? `Open days for ${serviceName(service)}: ${days.join(", ")}` : "No openings in the next few weeks.",
         event: { tool: name, summary: `Checked open days for ${serviceName(service)}` },
       };
     }
@@ -165,9 +154,7 @@ async function runTool(
       phone: input.phone ? String(input.phone) : undefined,
       email: input.email ? String(input.email) : undefined,
     });
-    const parts = q.computed.lines
-      .map((l) => `- ${l.qty}× ${l.name}: $${l.lineTotal.toFixed(2)}`)
-      .join("\n");
+    const parts = q.computed.lines.map((l) => `- ${l.qty}× ${l.name}: $${l.lineTotal.toFixed(2)}`).join("\n");
     const breakdown = [
       q.summary,
       parts,
@@ -180,14 +167,11 @@ async function runTool(
     ]
       .filter(Boolean)
       .join("\n");
-    return {
-      result: breakdown,
-      event: { tool: name, summary: `Quoted: ${q.summary} — $${q.computed.total.toFixed(2)}` },
-    };
+    return { result: breakdown, event: { tool: name, summary: `Quoted: ${q.summary} — $${q.computed.total.toFixed(2)}` } };
   }
 
   if (name === "capture_lead") {
-    const msg = await db.contactMessage.create({
+    await db.contactMessage.create({
       data: {
         name: String(input.name ?? "Website visitor"),
         phone: input.phone ? String(input.phone) : null,
@@ -208,10 +192,7 @@ async function runTool(
         .filter(Boolean)
         .join("\n"),
     ).catch(() => {});
-    return {
-      result: "Saved — the owner will follow up.",
-      event: { tool: name, summary: `Captured lead: ${input.name}` },
-    };
+    return { result: "Saved — the owner will follow up.", event: { tool: name, summary: `Captured lead: ${input.name}` } };
   }
 
   return { result: `Unknown tool ${name}`, event: { tool: name, summary: "Unknown tool" } };
@@ -221,55 +202,12 @@ async function runTool(
 export async function runPublicAssistant(
   history: ChatMessage[],
 ): Promise<{ text: string; events: ToolEvent[] }> {
-  const client = getClient();
-  const messages: Anthropic.MessageParam[] = history.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
-  const events: ToolEvent[] = [];
-
-  for (let i = 0; i < 8; i++) {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 2048,
-      thinking: { type: "adaptive" },
-      system: systemPrompt(),
-      tools,
-      messages,
-    });
-
-    const toolUses = response.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
-    );
-
-    if (response.stop_reason === "tool_use" && toolUses.length > 0) {
-      messages.push({ role: "assistant", content: response.content });
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const tu of toolUses) {
-        try {
-          const { result, event } = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>);
-          events.push(event);
-          toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: result });
-        } catch (err) {
-          toolResults.push({
-            type: "tool_result",
-            tool_use_id: tu.id,
-            content: `Error: ${err instanceof Error ? err.message : String(err)}`,
-            is_error: true,
-          });
-        }
-      }
-      messages.push({ role: "user", content: toolResults });
-      continue;
-    }
-
-    const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
-    return { text: text || "(no response)", events };
-  }
-
-  return { text: "Sorry — I got a bit tangled. Could you rephrase that?", events };
+  const { text, events } = await runChat({
+    system: systemPrompt(),
+    messages: history,
+    tools,
+    runTool,
+    maxTokens: 1200,
+  });
+  return { text: text || "Sorry — could you rephrase that?", events };
 }

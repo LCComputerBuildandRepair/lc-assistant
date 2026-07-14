@@ -1,29 +1,13 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { db } from "./db";
+import { runChat, hasAI, type AiTool, type ChatMessage, type ToolEvent } from "./ai";
 import { business, businessSummary, serviceName, appointmentTypeName } from "./business";
 
-const MODEL = "claude-opus-4-8";
+// Re-export shared types so existing imports keep working.
+export type { ChatMessage, ToolEvent } from "./ai";
 
-export function getClient(): Anthropic {
-  // Reads ANTHROPIC_API_KEY from the environment.
-  return new Anthropic();
-}
-
+/** True when an AI provider key is configured. */
 export function hasApiKey(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY;
-}
-
-/** Roles we persist and exchange with the model. */
-export type ChatRole = "user" | "assistant";
-export interface ChatMessage {
-  role: ChatRole;
-  content: string;
-}
-
-/** A record of a tool the assistant ran, surfaced to the UI. */
-export interface ToolEvent {
-  tool: string;
-  summary: string;
+  return hasAI();
 }
 
 function systemPrompt(): string {
@@ -43,62 +27,40 @@ function systemPrompt(): string {
     "- Before booking, briefly confirm the details back to the owner, then use the create_appointment tool.",
     "- Use get_appointments to check the schedule before suggesting times, and to answer 'what's on for today/this week'.",
     "- For in-home visits, confirm an address.",
-    "- You can help draft emails and replies, explain repairs in plain language, and recommend a service tier. The tier prices above are the published rates; hourly overage applies as noted, and hardware/parts are extra — frame anything beyond the flat tier as an estimate.",
-    "- Customers of the shop normally book online via Calendly (" + business.bookingUrl + "). When YOU book here, you're recording it on the owner's internal dashboard.",
-    "- If you don't know a business detail (exact hours, a phone number — the shop hasn't published one), say so rather than inventing it.",
+    "- You can help draft emails and replies, explain repairs in plain language, and give rough guidance — but never quote an exact price as final; frame pricing as an estimate pending a diagnostic.",
+    "- If you don't know a business detail (exact price, an address), say so rather than inventing it.",
   ].join("\n");
 }
 
-const tools: Anthropic.Tool[] = [
+const tools: AiTool[] = [
   {
     name: "get_appointments",
     description:
       "List appointments from the schedule, optionally filtered by date range and status. Use this to check the calendar before suggesting times or to answer what's coming up.",
-    input_schema: {
+    parameters: {
       type: "object",
       properties: {
-        from: {
-          type: "string",
-          description: "Start of range, ISO 8601 (e.g. 2026-07-13). Optional; defaults to now.",
-        },
-        to: {
-          type: "string",
-          description: "End of range, ISO 8601. Optional; defaults to 14 days from `from`.",
-        },
-        status: {
-          type: "string",
-          description:
-            "Optional status filter: scheduled, confirmed, in_progress, completed, cancelled, or no_show.",
-        },
+        from: { type: "string", description: "Start of range, ISO 8601. Optional; defaults to now." },
+        to: { type: "string", description: "End of range, ISO 8601. Optional; defaults to 14 days from `from`." },
+        status: { type: "string", description: "Optional status filter: scheduled, confirmed, in_progress, completed, cancelled, or no_show." },
       },
     },
   },
   {
     name: "create_appointment",
-    description:
-      "Book a new appointment on the schedule. Only call this after confirming the details with the owner.",
-    input_schema: {
+    description: "Book a new appointment on the schedule. Only call this after confirming the details with the owner.",
+    parameters: {
       type: "object",
       properties: {
-        customerName: { type: "string", description: "The customer's name." },
-        customerPhone: { type: "string", description: "The customer's phone number, if known." },
-        customerEmail: { type: "string", description: "The customer's email, if known." },
-        serviceType: {
-          type: "string",
-          description:
-            "The service key. One of: essential_care, performance_care, ultimate_care, custom_build, home_essential, home_performance, home_pro, pos_diagnostics, pos_setup, pos_migration, commercial_it, web_landing, web_small_business, web_custom, other.",
-        },
-        type: {
-          type: "string",
-          description: "How it happens: dropoff, pickup, in_store, home_call, remote, or phone.",
-        },
-        scheduledAt: {
-          type: "string",
-          description: "Date and time of the appointment, ISO 8601 (e.g. 2026-07-15T14:00:00).",
-        },
-        durationMin: { type: "number", description: "Length in minutes. Optional." },
-        location: { type: "string", description: "Address, required for in_home visits." },
-        notes: { type: "string", description: "Anything else worth recording about the job." },
+        customerName: { type: "string" },
+        customerPhone: { type: "string" },
+        customerEmail: { type: "string" },
+        serviceType: { type: "string", description: "One of: essential_care, performance_care, ultimate_care, custom_build, home_essential, home_performance, home_pro, pos_diagnostics, pos_setup, pos_migration, commercial_it, web_landing, web_small_business, web_custom, other." },
+        type: { type: "string", description: "How it happens: dropoff, pickup, in_store, home_call, remote, or phone." },
+        scheduledAt: { type: "string", description: "Date and time, ISO 8601 (e.g. 2026-07-15T14:00:00)." },
+        durationMin: { type: "number" },
+        location: { type: "string", description: "Address, required for home_call visits." },
+        notes: { type: "string" },
       },
       required: ["customerName", "serviceType", "type", "scheduledAt"],
     },
@@ -114,22 +76,16 @@ async function runTool(
     const to = input.to
       ? new Date(String(input.to))
       : new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
-    const where: Record<string, unknown> = {
-      scheduledAt: { gte: from, lte: to },
-    };
+    const where: Record<string, unknown> = { scheduledAt: { gte: from, lte: to } };
     if (input.status) where.status = String(input.status);
-    const appts = await db.appointment.findMany({
-      where,
-      orderBy: { scheduledAt: "asc" },
-      take: 100,
-    });
+    const appts = await db.appointment.findMany({ where, orderBy: { scheduledAt: "asc" }, take: 100 });
     const lines = appts.map(
       (a) =>
         `${a.scheduledAt.toISOString()} — ${a.customerName} — ${serviceName(a.serviceType)} (${appointmentTypeName(a.type)}) — ${a.status}`,
     );
     return {
       result: lines.length ? lines.join("\n") : "No appointments in that range.",
-      event: { tool: "get_appointments", summary: `Checked the schedule (${appts.length} found)` },
+      event: { tool: name, summary: `Checked the schedule (${appts.length} found)` },
     };
   }
 
@@ -145,80 +101,28 @@ async function runTool(
         durationMin: input.durationMin ? Number(input.durationMin) : 60,
         location: input.location ? String(input.location) : null,
         notes: input.notes ? String(input.notes) : null,
+        source: "assistant",
       },
     });
     return {
       result: `Booked. Appointment id ${appt.id} for ${appt.customerName} at ${appt.scheduledAt.toISOString()}.`,
-      event: {
-        tool: "create_appointment",
-        summary: `Booked ${appt.customerName} — ${serviceName(appt.serviceType)} on ${appt.scheduledAt.toLocaleString()}`,
-      },
+      event: { tool: name, summary: `Booked ${appt.customerName} — ${serviceName(appt.serviceType)} on ${appt.scheduledAt.toLocaleString()}` },
     };
   }
 
   return { result: `Unknown tool: ${name}`, event: { tool: name, summary: "Unknown tool" } };
 }
 
-/**
- * Run the assistant over a conversation and return its reply plus any actions taken.
- * Handles the full tool-use loop server-side.
- */
+/** Run the owner assistant over a conversation. */
 export async function runAssistant(
   history: ChatMessage[],
 ): Promise<{ text: string; events: ToolEvent[] }> {
-  const client = getClient();
-  const messages: Anthropic.MessageParam[] = history.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
-  const events: ToolEvent[] = [];
-
-  for (let i = 0; i < 8; i++) {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      thinking: { type: "adaptive" },
-      system: systemPrompt(),
-      tools,
-      messages,
-    });
-
-    const toolUses = response.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
-    );
-
-    if (response.stop_reason === "tool_use" && toolUses.length > 0) {
-      messages.push({ role: "assistant", content: response.content });
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const tu of toolUses) {
-        try {
-          const { result, event } = await runTool(
-            tu.name,
-            (tu.input ?? {}) as Record<string, unknown>,
-          );
-          events.push(event);
-          toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: result });
-        } catch (err) {
-          toolResults.push({
-            type: "tool_result",
-            tool_use_id: tu.id,
-            content: `Error running ${tu.name}: ${err instanceof Error ? err.message : String(err)}`,
-            is_error: true,
-          });
-        }
-      }
-      messages.push({ role: "user", content: toolResults });
-      continue;
-    }
-
-    // Final turn — collect text.
-    const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
-    return { text: text || "(no response)", events };
-  }
-
-  return { text: "I got stuck in a loop — let's try that again.", events };
+  const { text, events } = await runChat({
+    system: systemPrompt(),
+    messages: history,
+    tools,
+    runTool,
+    maxTokens: 1400,
+  });
+  return { text: text || "(no response)", events };
 }
