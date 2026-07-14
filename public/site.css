@@ -285,3 +285,51 @@ main, header, section, footer, .marquee { position: relative; z-index: 1; }
   .ring.spin, body::after { animation: none; }
   .btn-primary:hover::after, .btn-blue:hover::after { animation: none; }
 }
+
+/* ==========================================================================
+   PREMIUM PASS — the "worth a million" details: air, depth, grander type.
+   ========================================================================== */
+.sec { padding: 120px 0; }
+.hero { padding: 168px 0 0; }
+h1.hero-title { font-size: clamp(3.4rem, 8.4vw, 6.9rem); letter-spacing: -0.01em; }
+.hero-sub { font-size: 1.16rem; line-height: 1.72; max-width: 31rem; }
+.sec-head { margin-bottom: 60px; }
+.sec-head h2, .contact-info h2, .page-head h1 { letter-spacing: -0.015em; }
+.page-head { padding: 168px 0 66px; }
+
+/* Layered, realistic shadows + a light-catching hairline on every surface */
+.card, .tier, .review, form.card2, .work {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.25),
+    0 30px 66px -34px rgba(0, 0, 0, 0.92);
+}
+.card { padding: 34px; border-radius: 16px; }
+.tier { padding: 40px 34px; border-radius: 18px; }
+.card:hover, .tier:hover, .work:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 4px rgba(0, 0, 0, 0.3),
+    0 42px 80px -34px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+/* Buttons: refined proportions + tracking */
+.btn { border-radius: 8px; letter-spacing: 0.15em; }
+.btn-lg { padding: 17px 32px; }
+
+/* Grander stats + nav */
+.stat .num { font-size: 2.5rem; letter-spacing: -0.02em; }
+.stats { margin-top: 70px; padding: 36px 0 52px; }
+.nav { height: 84px; }
+.logo-img { height: 42px; }
+
+/* Refined marquee + gallery */
+.marquee { padding: 15px 0; }
+.marquee span { font-size: 1rem; letter-spacing: 0.05em; }
+.gallery { gap: 18px; }
+.gallery a { border-radius: 14px; }
+
+/* Smoother, more expensive-feeling reveal */
+.js .reveal { transform: translateY(30px); transition: opacity 0.85s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.85s cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+@media (max-width: 900px) {
+  .sec { padding: 80px 0; }
+  .hero { padding: 132px 0 0; }
+}
