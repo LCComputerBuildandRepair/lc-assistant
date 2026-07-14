@@ -333,3 +333,66 @@ h1.hero-title { font-size: clamp(3.4rem, 8.4vw, 6.9rem); letter-spacing: -0.01em
   .sec { padding: 80px 0; }
   .hero { padding: 132px 0 0; }
 }
+
+/* ==========================================================================
+   FLAGSHIP / CINEMATIC — the elite, high-production treatment.
+   ========================================================================== */
+:root { --bg: #07080b; --bg-2: #0d1016; --bg-3: #141821; }
+
+/* Full-bleed cinematic hero */
+.cine-hero { position: relative; min-height: 100vh; display: flex; align-items: center; overflow: hidden; }
+.cine-hero .cine-bg { position: absolute; inset: -8% 0; z-index: 0; will-change: transform; }
+.cine-hero .cine-bg img { width: 100%; height: 100%; object-fit: cover; object-position: 70% center; filter: saturate(1.1) contrast(1.05); }
+.cine-hero .cine-scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(95deg, rgba(7,8,11,.98) 0%, rgba(7,8,11,.9) 34%, rgba(7,8,11,.5) 64%, rgba(7,8,11,.72) 100%),
+    linear-gradient(0deg, rgba(7,8,11,.95) 2%, transparent 42%),
+    radial-gradient(120% 90% at 18% 40%, rgba(46,166,255,.1), transparent 55%); }
+.cine-hero .wrap { position: relative; z-index: 2; width: 100%; padding-top: 100px; padding-bottom: 60px; }
+.cine-eyebrow { display: inline-flex; align-items: center; gap: 14px; color: var(--blue-2); margin-bottom: 30px;
+  font-family: "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: .28em; font-size: .72rem; }
+.cine-eyebrow::before { content: ""; width: 40px; height: 1px; background: var(--blue); }
+.cine-title { font-family: "Anton", sans-serif; text-transform: uppercase; line-height: .86; letter-spacing: -0.015em;
+  font-size: clamp(3.6rem, 9.5vw, 8.2rem); margin-bottom: 30px; text-shadow: 0 4px 60px rgba(0,0,0,.6); }
+.cine-title .line { display: block; overflow: hidden; }
+.cine-title .line > span { display: inline-block; }
+.cine-title .serif-i { font-family: "Fraunces", serif; font-style: italic; text-transform: none; letter-spacing: -0.02em; }
+.cine-sub { font-size: 1.22rem; color: #c7cfda; max-width: 34rem; margin-bottom: 40px; line-height: 1.7; font-weight: 300; }
+.cine-cta { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+
+/* Bigger, more confident buttons for the flagship */
+.btn-xl { padding: 20px 40px; font-size: .82rem; letter-spacing: .16em; }
+
+/* Cinematic stat strip */
+.cine-stats { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+  border-top: 1px solid rgba(255,255,255,.12); margin-top: 70px; padding-top: 34px; }
+.cine-stats .num { font-family: "Anton", sans-serif; font-size: clamp(2.4rem, 4vw, 3.4rem); line-height: 1; letter-spacing: -.02em; }
+.cine-stats .lbl { color: #8b94a3; font-size: .82rem; margin-top: 8px; letter-spacing: .02em; }
+
+/* Scroll cue */
+.scroll-cue { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 3;
+  font-family: "JetBrains Mono", monospace; font-size: .6rem; letter-spacing: .3em; text-transform: uppercase; color: #6b7688;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.scroll-cue .bar { width: 1px; height: 44px; background: linear-gradient(var(--blue-2), transparent); animation: cue 2.2s ease-in-out infinite; transform-origin: top; }
+@keyframes cue { 0%,100% { transform: scaleY(.3); opacity: .4; } 50% { transform: scaleY(1); opacity: 1; } }
+
+/* Parallax hooks */
+[data-parallax] { will-change: transform; }
+
+/* Magnetic buttons feel */
+.btn { transition: transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .2s, background .2s, color .2s, border-color .2s; }
+
+/* Elevated section headings */
+.sec-head h2, .contact-info h2, .page-head h1 { letter-spacing: -0.02em; }
+.sec-head .kicker, .contact-info .kicker { font-size: .68rem; letter-spacing: .28em; }
+
+/* Cinematic reveal (used by the flagship motion engine) */
+.js .cine-in { opacity: 0; transform: translateY(42px); }
+.js .cine-in.shown { opacity: 1; transform: none; transition: opacity 1s cubic-bezier(.16,.8,.2,1), transform 1s cubic-bezier(.16,.8,.2,1); }
+
+@media (max-width: 900px) {
+  .cine-stats { grid-template-columns: 1fr 1fr; gap: 30px 20px; }
+  .cine-hero .cine-scrim { background:
+    linear-gradient(0deg, rgba(7,8,11,.98) 12%, rgba(7,8,11,.7) 55%, rgba(7,8,11,.85) 100%); }
+  .cine-hero .cine-bg img { object-position: 60% center; }
+}

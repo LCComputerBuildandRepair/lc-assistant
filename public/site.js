@@ -53,6 +53,101 @@
       entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
     }, { threshold: 0.12 });
     document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+
+    try { motion(); } catch (err) {
+      // Failsafe: never leave animated content hidden.
+      document.querySelectorAll(".cine-in").forEach(function (el) { el.classList.add("shown"); });
+    }
+  }
+
+  // ---- Flagship motion engine (progressive enhancement) ----
+  function motion() {
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Reveal above-the-fold hero items immediately, staggered.
+    var hero = document.querySelector(".cine-hero");
+    if (hero) {
+      var heroItems = hero.querySelectorAll(".cine-in");
+      heroItems.forEach(function (el, i) {
+        setTimeout(function () { el.classList.add("shown"); }, reduce ? 0 : 120 + i * 130);
+      });
+    }
+
+    // Reveal other .cine-in on scroll, staggered by group.
+    var cio = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var sibs = Array.prototype.slice.call(e.target.parentElement ? e.target.parentElement.querySelectorAll(":scope > .cine-in") : [e.target]);
+        var idx = Math.max(0, sibs.indexOf(e.target));
+        setTimeout(function () { e.target.classList.add("shown"); }, reduce ? 0 : idx * 90);
+        cio.unobserve(e.target);
+      });
+    }, { threshold: 0.14 });
+    document.querySelectorAll(".cine-in").forEach(function (el) {
+      if (hero && hero.contains(el)) return; // hero handled above
+      cio.observe(el);
+    });
+
+    // Animated counters.
+    var counters = document.querySelectorAll("[data-count]");
+    var counterSeen = new WeakSet();
+    var countIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting || counterSeen.has(e.target)) return;
+        counterSeen.add(e.target);
+        animateCount(e.target, reduce);
+      });
+    }, { threshold: 0.5 });
+    counters.forEach(function (el) { countIO.observe(el); });
+
+    // Parallax (throttled with rAF).
+    var parallax = Array.prototype.slice.call(document.querySelectorAll("[data-parallax]"));
+    if (parallax.length && !reduce) {
+      var ticking = false;
+      var onScroll = function () {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(function () {
+          var y = window.scrollY || window.pageYOffset;
+          parallax.forEach(function (el) {
+            var f = parseFloat(el.getAttribute("data-parallax")) || 0.15;
+            el.style.transform = "translate3d(0," + (y * f).toFixed(1) + "px,0)";
+          });
+          ticking = false;
+        });
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+    }
+
+    // Magnetic buttons (desktop only, subtle).
+    if (!reduce && window.matchMedia("(hover: hover)").matches) {
+      document.querySelectorAll(".btn-xl, .btn-lg").forEach(function (btn) {
+        btn.addEventListener("mousemove", function (ev) {
+          var r = btn.getBoundingClientRect();
+          var mx = ev.clientX - r.left - r.width / 2;
+          var my = ev.clientY - r.top - r.height / 2;
+          btn.style.transform = "translate(" + mx * 0.18 + "px," + my * 0.28 + "px)";
+        });
+        btn.addEventListener("mouseleave", function () { btn.style.transform = ""; });
+      });
+    }
+  }
+
+  function animateCount(el, reduce) {
+    var target = parseFloat(el.getAttribute("data-count")) || 0;
+    var prefix = el.getAttribute("data-prefix") || "";
+    var suffix = el.getAttribute("data-suffix") || "";
+    if (reduce) { el.textContent = prefix + target + suffix; return; }
+    var start = null, dur = 1400;
+    function step(ts) {
+      if (start === null) start = ts;
+      var p = Math.min(1, (ts - start) / dur);
+      var eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = prefix + Math.round(target * eased) + suffix;
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
   }
 
   if (document.readyState !== "loading") mount();
