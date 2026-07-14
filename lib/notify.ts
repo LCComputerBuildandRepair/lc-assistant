@@ -13,8 +13,20 @@
  *                    also be configured.
  */
 
-const OWNER_EMAIL = process.env.OWNER_EMAIL || process.env.NOTIFY_FROM_EMAIL || "";
-const OWNER_PHONE = process.env.OWNER_PHONE || "";
+import { business } from "./business";
+
+// Where owner alerts go. Falls back to the business config so it works even
+// without OWNER_EMAIL / OWNER_PHONE env vars set.
+const OWNER_EMAIL = process.env.OWNER_EMAIL || business.email || process.env.NOTIFY_FROM_EMAIL || "";
+const OWNER_PHONE = normalizePhone(process.env.OWNER_PHONE || business.phone || "");
+
+/** Normalize a US phone to E.164 (+1XXXXXXXXXX) for Twilio; leave others as-is. */
+function normalizePhone(p: string): string {
+  const digits = p.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return p.trim();
+}
 
 export interface NotifyResult {
   email: "sent" | "skipped" | "error";
@@ -100,7 +112,8 @@ export async function sendSms(
       console.log(`[notify:sms] carrier gateway not set — logged only:\n${message}`);
       return "skipped";
     }
-    const digits = toPhone.replace(/\D/g, "");
+    // Carrier gateways want the 10-digit number (no country code).
+    const digits = toPhone.replace(/\D/g, "").slice(-10);
     // Email-to-text: send a short email to the carrier's SMS gateway.
     return sendEmail(`${digits}@${gateway}`, "", message);
   }

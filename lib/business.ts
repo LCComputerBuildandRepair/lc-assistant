@@ -14,8 +14,8 @@ export const business = {
   location: "Mansfield, Ohio",
   serviceArea:
     "Mansfield, Ohio and the surrounding area. Remote website design available anywhere.",
-  email: "lukepennywitt@yahoo.com",
-  phone: "", // not published on the website
+  email: "lpennywitt@lccomputerbuildandrepair.com",
+  phone: "(419) 961-1568",
   social: "@lccomputerbuildandrepair",
   website: "https://lccomputerbuildandrepair.com",
   bookingUrl: "https://calendly.com/lukepennywitt/30min",
