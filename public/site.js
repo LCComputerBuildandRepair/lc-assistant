@@ -65,7 +65,7 @@
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Reveal above-the-fold hero items immediately, staggered.
-    var hero = document.querySelector(".cine-hero");
+    var hero = document.querySelector(".cine-hero, .hero");
     if (hero) {
       var heroItems = hero.querySelectorAll(".cine-in");
       heroItems.forEach(function (el, i) {

@@ -230,12 +230,12 @@ footer { border-top: 1px solid var(--line); padding: 54px 0 40px; }
 /* Glossy dark surface — top-lit and deepening toward the base, like polished
    paint catching the light. Fixed so it reads as one reflective surface. */
 body {
-  background: radial-gradient(160% 130% at 50% -30%, #202634 0%, #141821 34%, #0c0e14 66%, #07080c 100%);
+  background: radial-gradient(150% 130% at 50% -22%, #3a4353 0%, #2b3341 34%, #1f2531 68%, #171b23 100%);
   background-attachment: fixed;
 }
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background: linear-gradient(175deg, rgba(255, 255, 255, .05) 0%, transparent 12%, transparent 88%, rgba(255, 255, 255, .02) 100%);
+  background: linear-gradient(175deg, rgba(255, 255, 255, .1) 0%, rgba(255, 255, 255, .02) 15%, transparent 46%, transparent 84%, rgba(255, 255, 255, .04) 100%);
 }
 /* A soft reflection that slowly glides across the surface, like light moving over clear-coat */
 body::after {
@@ -337,7 +337,7 @@ h1.hero-title { font-size: clamp(3.4rem, 8.4vw, 6.9rem); letter-spacing: -0.01em
 /* ==========================================================================
    FLAGSHIP / CINEMATIC — the elite, high-production treatment.
    ========================================================================== */
-:root { --bg: #07080b; --bg-2: #0d1016; --bg-3: #141821; }
+:root { --bg: #171b23; --bg-2: #1f2531; --bg-3: #28303e; --muted: #a7b2c1; }
 
 /* Full-bleed cinematic hero */
 .cine-hero { position: relative; min-height: 100vh; display: flex; align-items: center; overflow: hidden; }
