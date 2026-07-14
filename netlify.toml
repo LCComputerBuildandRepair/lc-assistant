@@ -13,7 +13,7 @@
   # business email that's shown on the site) but appear as literals in the code,
   # which trips Netlify's secrets scanner. Exclude them; real secrets
   # (DATABASE_URL, AI_API_KEY, etc.) never appear in the code and stay scanned.
-  SECRETS_SCAN_OMIT_KEYS = "AI_BASE_URL,AI_MODEL,OWNER_EMAIL"
+  SECRETS_SCAN_OMIT_KEYS = "AI_BASE_URL,AI_MODEL,OWNER_EMAIL,OWNER_PHONE,MAIL_USER,MAIL_PROVIDER,SMS_PROVIDER,OWNER_CARRIER_GATEWAY,NOTIFY_FROM_EMAIL,ALLOWED_ORIGIN,TZ"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
