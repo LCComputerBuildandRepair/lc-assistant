@@ -495,3 +495,70 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .core::before, .tier.featured::before { animation: none; opacity: 0; }
 }
+
+/* ==========================================================================
+   GUNMETAL IN THE SUN — the surface is a single sheet of dark gunmetal car
+   paint: a hot specular where the sun hits, a curved sky reflection down the
+   panel, deep steel falloff, and cool metallic edges. Overrides earlier gloss.
+   ========================================================================== */
+:root { --bg: #0e1219; --bg-2: #161b24; --bg-3: #1f2632; }
+
+body {
+  background-color: #0c0f15;
+  background:
+    /* the hot sun — concentrated white core with a warm halo, upper-right */
+    radial-gradient(30% 24% at 74% 2%, rgba(255,255,255,.6), rgba(255,241,220,.18) 24%, transparent 50%),
+    /* the sky the panel is reflecting — cool bloom spilling from the sun */
+    radial-gradient(130% 78% at 62% -14%, rgba(150,182,222,.26), transparent 56%),
+    /* the curved gunmetal body panel: bright steel top → deep body → dark base */
+    linear-gradient(167deg,
+      #6a7787 0%, #495468 8%, #2f3745 24%, #202632 44%,
+      #171c26 64%, #10141c 82%, #0c0f15 100%);
+  background-attachment: fixed;
+}
+
+/* Clear-coat sheen + a faint anisotropic metallic streak (the "flake" catching light) */
+body::before {
+  z-index: 0;
+  background:
+    linear-gradient(159deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,.02) 20%, transparent 40%, transparent 70%, rgba(255,255,255,.05) 100%),
+    repeating-linear-gradient(101deg, rgba(255,255,255,.022) 0 2px, rgba(0,0,0,.015) 2px 5px);
+}
+
+/* The panel turning in the light — slow-moving reflected highlights */
+body::after {
+  background:
+    radial-gradient(42% 56% at 28% 24%, rgba(176,204,240,.12), transparent 60%),
+    radial-gradient(48% 40% at 80% 10%, rgba(255,226,190,.11), transparent 55%);
+  animation: drift 42s ease-in-out infinite alternate;
+}
+
+/* Tint sections read as a recessed, slightly darker metal panel with its own sheen */
+.sec.tint {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.05), transparent 12%),
+    linear-gradient(180deg, #1a212c 0%, #12171f 100%);
+}
+
+/* Cards as brushed gunmetal panels — cool steel top edge, not plastic white */
+.card, .tier, .review, form.card2, .work {
+  background: linear-gradient(180deg, rgba(38,45,58,.95), rgba(16,20,28,.97));
+  box-shadow:
+    inset 0 1.5px 0 rgba(198,214,236,.24),
+    inset 0 0 0 1px rgba(255,255,255,.03),
+    inset 0 -18px 30px -22px rgba(0,0,0,.7),
+    0 2px 5px rgba(0,0,0,.35),
+    0 30px 60px -30px rgba(0,0,0,.92);
+}
+.card::after, .tier::after, .review::after {
+  background:
+    linear-gradient(158deg, rgba(210,224,244,.16) 0%, rgba(210,224,244,.03) 20%, transparent 46%),
+    radial-gradient(120% 78% at 12% -12%, rgba(200,218,242,.16), transparent 46%);
+}
+.card:hover, .tier:hover {
+  box-shadow:
+    inset 0 1.5px 0 rgba(210,224,244,.32),
+    inset 0 -18px 30px -22px rgba(0,0,0,.7),
+    0 0 0 1px rgba(200,218,242,.08),
+    0 38px 72px -28px rgba(0,0,0,.94);
+}
