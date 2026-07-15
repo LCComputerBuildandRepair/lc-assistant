@@ -396,3 +396,102 @@ h1.hero-title { font-size: clamp(3.4rem, 8.4vw, 6.9rem); letter-spacing: -0.01em
     linear-gradient(0deg, rgba(7,8,11,.98) 12%, rgba(7,8,11,.7) 55%, rgba(7,8,11,.85) 100%); }
   .cine-hero .cine-bg img { object-position: 60% center; }
 }
+
+/* ==========================================================================
+   EXTRA SHINE — turn the gloss up. Brighter reflections, chrome edges,
+   glass highlights, and a slow specular glint. Layered last so it wins.
+   ========================================================================== */
+
+/* Stronger top-lit reflection across the whole surface + a crisp highlight band */
+body::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, .045) 6%, transparent 22%),
+    linear-gradient(175deg, rgba(255, 255, 255, .08) 0%, rgba(255, 255, 255, .015) 16%, transparent 46%, transparent 82%, rgba(255, 255, 255, .06) 100%);
+}
+body::after {
+  background:
+    radial-gradient(48% 40% at 22% 26%, rgba(150, 200, 255, .08), transparent 60%),
+    radial-gradient(44% 38% at 72% 56%, rgba(255, 165, 95, .07), transparent 60%),
+    radial-gradient(70% 50% at 50% -8%, rgba(255, 255, 255, .05), transparent 62%);
+}
+
+/* Chrome-bright card edges + a top-half glass reflection + brighter corner specular */
+.card, .tier, .review, form.card2, .work {
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, .22),
+    inset 0 0 0 1px rgba(255, 255, 255, .04),
+    0 2px 5px rgba(0, 0, 0, .3),
+    0 30px 60px -30px rgba(0, 0, 0, .9);
+}
+.card::after, .tier::after, .review::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .12) 0%, rgba(255, 255, 255, .025) 22%, transparent 48%),
+    radial-gradient(120% 78% at 12% -12%, rgba(255, 255, 255, .2), transparent 46%);
+}
+.card:hover, .tier:hover {
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, .3),
+    0 0 0 1px rgba(255, 255, 255, .07),
+    0 36px 70px -28px rgba(0, 0, 0, .92);
+}
+.tier.featured {
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, .28),
+    0 0 0 1px var(--orange),
+    0 0 34px -6px rgba(255, 122, 31, .45),
+    0 30px 64px -28px rgba(255, 122, 31, .5);
+}
+
+/* Wetter, brighter buttons */
+.btn-primary {
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .8), inset 0 -8px 15px rgba(150, 50, 0, .3), 0 12px 30px -8px rgba(255, 120, 30, .8), 0 2px 5px rgba(0, 0, 0, .45);
+}
+.btn-blue {
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .8), inset 0 -8px 15px rgba(0, 60, 120, .3), 0 12px 30px -8px rgba(46, 166, 255, .78), 0 2px 5px rgba(0, 0, 0, .45);
+}
+
+/* Shinier imagery — brighter clear-coat streak + a touch more pop */
+.work .shot img, .split .shot img, .gallery a img { filter: saturate(1.14) contrast(1.09) brightness(1.035); }
+.work .shot::after, .split .shot::after, .gallery a::after {
+  background:
+    linear-gradient(158deg, rgba(255, 255, 255, .3) 0%, rgba(255, 255, 255, .06) 15%, transparent 40%),
+    linear-gradient(0deg, rgba(255, 255, 255, .05), transparent 30%);
+}
+
+/* Glassier logo disc — brighter specular + a slow glint drifting over the glass */
+.core {
+  box-shadow: 0 0 96px 8px rgba(46, 166, 255, .34), inset 0 2px 0 rgba(255, 255, 255, .28), inset 0 0 44px rgba(255, 122, 31, .2);
+}
+.core::after {
+  background: linear-gradient(158deg, rgba(255, 255, 255, .3) 0%, rgba(255, 255, 255, .06) 22%, transparent 46%);
+}
+.core::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: 3; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .35) 46%, rgba(255, 255, 255, .05) 52%, transparent 60%);
+  background-size: 260% 260%;
+  animation: glint 7.5s ease-in-out infinite;
+}
+@keyframes glint {
+  0%, 100% { background-position: 120% 0%; opacity: 0; }
+  45%      { opacity: .9; }
+  55%      { opacity: .9; }
+  100%     { background-position: -40% 0%; }
+}
+
+/* A slow shine sweep across the featured tier, like light passing over polished glass */
+.tier.featured { overflow: hidden; }
+.tier.featured::before {
+  content: ""; position: absolute; top: 0; left: -60%; width: 45%; height: 100%; z-index: 1; pointer-events: none;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .16), transparent);
+  transform: skewX(-18deg);
+  animation: cardsheen 8s ease-in-out infinite;
+}
+.tier.featured > * { position: relative; z-index: 2; }
+@keyframes cardsheen {
+  0%, 62%, 100% { left: -60%; }
+  80%           { left: 130%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .core::before, .tier.featured::before { animation: none; opacity: 0; }
+}
