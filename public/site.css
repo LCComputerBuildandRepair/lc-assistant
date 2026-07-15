@@ -562,3 +562,61 @@ body::after {
     0 0 0 1px rgba(200,218,242,.08),
     0 38px 72px -28px rgba(0,0,0,.94);
 }
+
+/* ==========================================================================
+   MIRROR POLISH — polished dark chrome like a tungsten ring: one big soft
+   studio highlight blazing across a near-black mirror, high contrast, glass
+   smooth (no grain). This is the top layer; it defines the final look.
+   ========================================================================== */
+:root { --bg: #0b0e15; --bg-2: #141a24; --bg-3: #1d2531; }
+
+body {
+  background-color: #070809;
+  background:
+    radial-gradient(60% 46% at 62% 20%, rgba(255,255,255,.82), rgba(210,224,242,.36) 22%, rgba(120,140,166,.10) 46%, transparent 66%),
+    radial-gradient(44% 40% at 18% 84%, rgba(150,174,206,.15), transparent 62%),
+    linear-gradient(166deg, #3b4557 0%, #232a38 20%, #141926 46%, #0c0f17 72%, #070809 100%);
+  background-attachment: fixed;
+}
+
+body::before {
+  z-index: 0;
+  background: linear-gradient(158deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,.03) 16%, transparent 38%, transparent 72%, rgba(255,255,255,.06) 100%);
+}
+
+body::after {
+  background:
+    radial-gradient(50% 42% at 66% 18%, rgba(255,255,255,.11), transparent 60%),
+    radial-gradient(40% 34% at 28% 80%, rgba(150,182,222,.09), transparent 62%);
+  animation: drift 40s ease-in-out infinite alternate;
+}
+
+.sec.tint {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 10%),
+    linear-gradient(180deg, #161c26 0%, #0b0e15 100%);
+}
+
+.card, .tier, .review, form.card2, .work {
+  background: linear-gradient(180deg, rgba(46,54,68,.96) 0%, rgba(20,25,34,.97) 44%, rgba(10,13,19,.98) 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(236,244,255,.42),
+    inset 0 0 0 1px rgba(255,255,255,.04),
+    inset 0 -20px 34px -22px rgba(0,0,0,.8),
+    0 2px 6px rgba(0,0,0,.4),
+    0 34px 66px -30px rgba(0,0,0,.95);
+}
+.card::after, .tier::after, .review::after {
+  background:
+    linear-gradient(157deg, rgba(255,255,255,.24) 0%, rgba(255,255,255,.05) 13%, transparent 40%),
+    radial-gradient(130% 62% at 50% -22%, rgba(222,234,252,.2), transparent 50%);
+}
+.card:hover, .tier:hover {
+  box-shadow:
+    inset 0 2px 0 rgba(236,244,255,.55),
+    inset 0 -20px 34px -22px rgba(0,0,0,.8),
+    0 0 0 1px rgba(222,234,252,.1),
+    0 42px 78px -28px rgba(0,0,0,.96);
+}
+
+.core::before { background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.55) 47%, rgba(255,255,255,.08) 52%, transparent 60%); background-size: 260% 260%; }
