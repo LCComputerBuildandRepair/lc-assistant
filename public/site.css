@@ -620,3 +620,42 @@ body::after {
 }
 
 .core::before { background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.55) 47%, rgba(255,255,255,.08) 52%, transparent 60%); background-size: 260% 260%; }
+
+/* ==========================================================================
+   VIBRANT + FLOATING LOGO — no black disc behind the logo (it floats on a soft
+   branded glow), plus more brand color in the reflections for a livelier,
+   shinier finish. Top layer.
+   ========================================================================== */
+
+/* Logo floats on a soft blue+orange glow instead of a black disc */
+.core {
+  background: radial-gradient(circle at 50% 44%, rgba(46,166,255,.22) 0%, rgba(255,122,31,.13) 46%, transparent 72%);
+  border: 0;
+  box-shadow: 0 0 74px 12px rgba(46,166,255,.30), 0 0 46px 6px rgba(255,122,31,.20);
+}
+.core::after { display: none; }
+.core::before { display: none; }
+.core img { filter: drop-shadow(0 6px 20px rgba(0,0,0,.5)) drop-shadow(0 0 20px rgba(46,166,255,.28)); }
+
+/* Warmer, more colorful moving reflections in the metal */
+body::after {
+  background:
+    radial-gradient(48% 44% at 66% 16%, rgba(120,190,255,.16), transparent 60%),
+    radial-gradient(46% 40% at 24% 82%, rgba(255,150,70,.14), transparent 62%);
+  animation: drift 40s ease-in-out infinite alternate;
+}
+
+/* Bigger, more colorful hero bloom */
+.hero-glow { background: radial-gradient(circle, rgba(46,166,255,.17) 0%, rgba(255,110,25,.12) 36%, transparent 66%); }
+
+/* Punchier brand gradients everywhere they're used */
+:root {
+  --ember: linear-gradient(135deg, #ff7a1f 0%, #ffb445 100%);
+  --cool: linear-gradient(135deg, #24b4ff 0%, #7ad6ff 100%);
+}
+
+/* More vivid, glossier imagery */
+.work .shot img, .split .shot img, .gallery a img { filter: saturate(1.28) contrast(1.1) brightness(1.05); }
+
+/* Accent (gradient) text a touch brighter so color pops on the dark chrome */
+.grad, .grad-blue { filter: saturate(1.15) brightness(1.06); }
