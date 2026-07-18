@@ -2,6 +2,7 @@ import { extractToolCall, type AiTool } from "./ai";
 import { db } from "./db";
 import { notifyOwner, sendEmail } from "./notify";
 import { syncQuoteToGoogle } from "./google";
+import { applyCatalogPricing } from "./parts-catalog";
 import { business } from "./business";
 import {
   computeQuote,
@@ -57,6 +58,7 @@ function systemPrompt(): string {
     `You are the estimating assistant for ${business.name} (${business.location}). A customer wants a price estimate. Decide whether it's a new PC build, a repair / parts replacement, or a website, then submit a structured quote using your knowledge of current US retail prices.`,
     "",
     "For a build or repair: list the specific parts with realistic current US retail unit prices. Choose sensible mid-range quality unless the customer specifies a budget; match the budget when given. For a build, include CPU, motherboard, RAM, storage, GPU (if gaming), PSU, case, cooler, and Windows if needed.",
+    "IMPORTANT for RAM and storage: always state the capacity and type in the part name (e.g. '32GB DDR5 RAM', '1TB NVMe SSD', '4TB HDD'). The shop re-prices all memory and storage from its own current price list, so the capacity and type MUST be correct. Memory and SSD prices are far higher now than in the past — do not lowball them.",
     "For a website: no parts. Recommend the tier that fits (web_landing $300, web_small_business $600, web_custom $1000+).",
     "Do not calculate tax, labor, or totals — the shop adds those. Prices in plain USD numbers. Always call submit_quote.",
   ].join("\n");
@@ -111,7 +113,10 @@ export async function generateQuote(
         ? pricingConfig.buildLabor
         : pricingConfig.repairLabor;
 
-  const computed = computeQuote(r.kind, r.kind === "website" ? [] : r.items, labor);
+  // Re-price RAM/storage from the shop's own current price list (the AI's
+  // memory/SSD prices are stale and far too low).
+  const pricedItems = r.kind === "website" ? [] : applyCatalogPricing(r.items);
+  const computed = computeQuote(r.kind, pricedItems, labor);
 
   const saved = await db.quote.create({
     data: {
@@ -137,14 +142,16 @@ export async function generateQuote(
   const now = new Date();
   const expires = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
   const lineList = computed.lines.map((l) => `  • ${l.qty}× ${l.name} — $${l.lineTotal.toFixed(2)}`);
+  const quoteNumber = `LC-${saved.id.slice(0, 8).toUpperCase()}`;
 
   // Log to Google Sheet + create a Google Doc (best-effort); returns the Doc link.
   const g = await syncQuoteToGoogle({
+    quoteNumber,
     customerName: customer?.name || "(not provided)",
     contact: [customer?.phone, customer?.email].filter(Boolean).join(" / ") || "(none)",
     kind: r.kind,
     summary: r.summary,
-    items: computed.lines.map((l) => ({ qty: l.qty, name: l.name, lineTotal: l.lineTotal })),
+    items: computed.lines.map((l) => ({ qty: l.qty, name: l.name, unitPrice: l.unitPrice, lineTotal: l.lineTotal })),
     partsCharge: computed.partsCharge,
     tax: computed.tax,
     labor: computed.labor,
@@ -152,6 +159,14 @@ export async function generateQuote(
     assumptions: r.assumptions,
     createdISO: now.toISOString(),
     expiresISO: expires.toISOString(),
+    business: {
+      name: business.name,
+      owner: business.owner,
+      phone: business.phone,
+      email: business.email,
+      location: business.location,
+      website: business.website,
+    },
   });
 
   // Customer-facing quote (no cost basis / margin).

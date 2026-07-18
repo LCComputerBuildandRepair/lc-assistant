@@ -45,11 +45,12 @@ export async function syncBookingToGoogle(appt: {
 }
 
 export interface QuoteSyncInput {
+  quoteNumber?: string;
   customerName: string;
   contact: string;
   kind: string;
   summary: string;
-  items: { qty: number; name: string; lineTotal: number }[];
+  items: { qty: number; name: string; unitPrice?: number; lineTotal: number }[];
   partsCharge: number;
   tax: number;
   labor: number;
@@ -57,6 +58,14 @@ export interface QuoteSyncInput {
   assumptions: string;
   createdISO: string;
   expiresISO: string;
+  business?: {
+    name: string;
+    owner: string;
+    phone: string;
+    email: string;
+    location: string;
+    website: string;
+  };
 }
 
 /** Append the quote to the tracking Sheet and create a Doc. Returns the Doc URL. */
