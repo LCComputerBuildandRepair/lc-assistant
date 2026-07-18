@@ -22,52 +22,55 @@
  * ----------------------------------------------------------------------------
  */
 
-/** DDR5 RAM — price per full kit (USD, retail). Update to current prices. */
+// Based on real Best Buy (Mansfield) pricing, July 2026. Prices are elevated due
+// to the current memory/NAND shortage — update as the market moves.
+
+/** DDR5 RAM — price per full kit (USD, retail). */
 const RAM_DDR5: Record<number, number> = {
-  8: 90,
-  16: 150,
-  32: 300,
-  48: 450,
-  64: 600,
-  96: 900,
-  128: 1200,
+  8: 130,
+  16: 235,
+  32: 480,
+  48: 700,
+  64: 950,
+  96: 1400,
+  128: 1850,
 };
 
-/** DDR4 RAM — price per full kit (USD, retail). Update to current prices. */
+/** DDR4 RAM — price per full kit (USD, retail). */
 const RAM_DDR4: Record<number, number> = {
-  8: 55,
-  16: 100,
-  32: 200,
-  64: 400,
+  8: 95,
+  16: 165,
+  32: 290,
+  64: 560,
 };
 
 /** NVMe / M.2 SSD — price per drive by capacity in GB (USD, retail). */
 const SSD_NVME: Record<number, number> = {
-  250: 45,
-  500: 75,
-  1000: 130,
-  2000: 240,
-  4000: 470,
-  8000: 900,
+  250: 60,
+  500: 90,
+  1000: 160,
+  2000: 300,
+  4000: 600,
+  8000: 1200,
 };
 
 /** SATA (2.5") SSD — price per drive by capacity in GB (USD, retail). */
 const SSD_SATA: Record<number, number> = {
-  250: 40,
-  500: 65,
-  1000: 115,
-  2000: 220,
-  4000: 430,
+  250: 55,
+  500: 80,
+  1000: 140,
+  2000: 270,
+  4000: 550,
 };
 
 /** Spinning hard drive (HDD) — price per drive by capacity in GB (USD, retail). */
 const HDD: Record<number, number> = {
-  1000: 55,
-  2000: 70,
-  4000: 110,
-  8000: 185,
-  12000: 270,
-  16000: 340,
+  1000: 60,
+  2000: 75,
+  4000: 120,
+  8000: 190,
+  12000: 280,
+  16000: 350,
 };
 
 // ============================================================================
