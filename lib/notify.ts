@@ -32,21 +32,60 @@ function normalizePhone(p: string): string {
 export interface NotifyResult {
   email: "sent" | "skipped" | "error";
   sms: "sent" | "skipped" | "error";
+  discord: "sent" | "skipped" | "error";
   detail?: string;
 }
 
-/** Notify the shop owner by email and text. Never throws. `ical` attaches a
- *  calendar invite to the email (so Google Calendar adds the event). */
+/** Notify the shop owner by email, text, and Discord. Never throws. `ical`
+ *  attaches a calendar invite to the email (so Google Calendar adds the event). */
 export async function notifyOwner(
   subject: string,
   body: string,
   opts?: { ical?: string },
 ): Promise<NotifyResult> {
-  const [email, sms] = await Promise.all([
+  const [email, sms, discord] = await Promise.all([
     sendOwnerEmail(subject, body, opts?.ical),
     sendOwnerSms(`${subject}\n${body}`),
+    sendOwnerDiscord(subject, body),
   ]);
-  return { email, sms };
+  return { email, sms, discord };
+}
+
+// --- Discord -----------------------------------------------------------------
+
+/**
+ * Post the notification into a Discord channel via an incoming webhook.
+ * Set DISCORD_WEBHOOK_URL to a channel webhook
+ * (Channel → Edit → Integrations → Webhooks → New Webhook → Copy URL).
+ * The shop's Discord assistant watches that channel and helps work the lead.
+ */
+async function sendOwnerDiscord(subject: string, body: string): Promise<NotifyResult["discord"]> {
+  const url = process.env.DISCORD_WEBHOOK_URL;
+  if (!url) return "skipped";
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: `${business.name} • Website`,
+        embeds: [
+          {
+            title: subject.slice(0, 256),
+            description: body.slice(0, 4000),
+            color: 0x16a34a,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      console.error(`[notify:discord] webhook error ${res.status}: ${await res.text()}`);
+      return "error";
+    }
+    return "sent";
+  } catch (err) {
+    console.error("[notify:discord] failed:", err);
+    return "error";
+  }
 }
 
 // --- Email -------------------------------------------------------------------
